@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pinecone — guess the number</title>
+
+<script>
+/* ============================================================================
+   QUIZ — the only thing you need to edit.
+   ----------------------------------------------------------------------------
+   One standalone question. The engine still loops, so adding a second entry to
+   `questions` brings back a "Next question" button automatically.
+
+   theme: 'sage' | 'olive' | 'rose' | 'peri' | 'amber'
+   videoUrl: set it to show a CTA button under the answer; leave it null for
+             none, which is right when the video sits next to the quiz anyway.
+   reveal.note: optional extra line. Leave it off and nothing renders.
+
+   ORDER MATTERS: list options from lowest to highest. The reveal uses their
+   position to tell someone whether they guessed under or over the answer.
+   Any option can override its reaction with its own `verdict: '...'`.
+   ========================================================================= */
+const QUIZ = {
+  revealMode: 'immediate',
+  videoUrl: null,
+  videoLabel: 'Watch the video',
+
+  questions: [
+    {
+      theme: 'sage',
+      kicker: 'Take a guess',
+      prompt: 'In 1789, George Washington puts $1 into a trust earning 8% a year. What is it worth in 2026?',
+      options: [
+        { label: 'About $190,000' },
+        { label: 'About $8 million' },
+        { label: 'About $83 million', correct: true },
+        { label: 'About $4 billion' },
+      ],
+      reveal: {
+        big: '$83 million',
+        line: 'One dollar, 237 years, 8% a year.',
+      },
+    },
+  ],
+};
+</script>
+
+<style>
+  :root {
+    /* the widget brings its own colors, so it reads the same on a light or a
+       dark host page. `only light` stops browsers auto-inverting it. */
+    color-scheme: only light;
+
+    --ink: #1F2531;
+    --cream: #FBF5E9;
+    --olive: #8E9C64;
+    --sage:  #9BBBA5;
+    --rose:  #C98D98;
+    --peri:  #98A5DA;
+    --amber: #E5B667;
+    --sans: "Nunito", "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --wob-1: 14px 8px 16px 9px / 9px 16px 8px 15px;
+    --wob-2: 10px 18px 9px 16px / 15px 8px 17px 9px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { font: 15px/1.45 var(--sans); color: var(--ink); background: transparent; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  h1, h2, p { margin: 0; }
+
+  /* The painted plate. Not a div with a gradient mask — a filtered SVG rect,
+     so the edge genuinely tears and streaks like a dry brush stroke, and the
+     grain sits inside that torn shape instead of overflowing it. */
+  .card {
+    position: relative;
+    width: 100%; max-width: 440px; min-width: 0; margin: 0 auto;
+    padding: 24px 24px 26px;
+    color: var(--sage);               /* the plate reads this via currentColor */
+  }
+  .card.olive { color: var(--olive); }
+  .card.rose  { color: var(--rose); }
+  .card.peri  { color: var(--peri); }
+  .card.amber { color: var(--amber); }
+
+  .plate { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  .content { position: relative; z-index: 1; color: var(--ink); }
+
+  .kicker {
+    display: block;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
+    opacity: .58; margin-bottom: 7px;
+  }
+  .prompt { font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -.005em; margin-bottom: 13px; }
+
+  .opts { display: grid; gap: 7px; }
+  .opt {
+    text-align: left; width: 100%;
+    background: var(--cream); border: 2px solid var(--ink); border-radius: var(--wob-1);
+    padding: 10px 13px; font-size: 14.5px; font-weight: 500;
+    box-shadow: 2px 2px 0 rgba(31, 37, 49, .2);
+    transition: transform .09s, box-shadow .12s;
+  }
+  .opt:nth-child(even) { border-radius: var(--wob-2); }
+  .opt:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 rgba(31, 37, 49, .26); }
+  .opt:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(31, 37, 49, .2); }
+
+  .guess { font-size: 12.5px; font-weight: 500; opacity: .78; margin-bottom: 9px; }
+  .guess b { font-weight: 700; }
+
+  /* the answer callout, outlined like the formula cards */
+  .plate-answer {
+    background: var(--amber); border: 2.5px solid var(--ink); border-radius: var(--wob-1);
+    padding: 11px 14px 13px; box-shadow: 3px 3px 0 rgba(31, 37, 49, .24);
+    transform: rotate(-.5deg);
+  }
+  .plate-answer .verdict { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .62; margin-bottom: 4px; }
+  .plate-answer .big { font-size: 30px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+  .plate-answer .big.small { font-size: 19px; letter-spacing: -.005em; }
+  .plate-answer .line { font-size: 13px; font-weight: 500; margin-top: 4px; }
+
+  .note { font-size: 13px; line-height: 1.45; font-weight: 400; margin-top: 11px; }
+
+  .foot { padding-top: 12px; display: grid; gap: 6px; }
+  .btn {
+    display: block; width: 100%; text-align: center; text-decoration: none;
+    background: var(--cream); color: var(--ink);
+    border: 2.5px solid var(--ink); border-radius: var(--wob-2);
+    padding: 11px 14px; font-size: 15px; font-weight: 600;
+    box-shadow: 3px 3px 0 rgba(31, 37, 49, .26);
+    transition: transform .09s, box-shadow .12s;
+  }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(31, 37, 49, .3); }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 rgba(31, 37, 49, .26); }
+  .btn.solid { background: var(--ink); color: var(--cream); }
+  .linkbtn {
+    background: none; border: 0; padding: 4px; font-size: 12.5px; font-weight: 600;
+    color: var(--ink); opacity: .62; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .linkbtn:hover { opacity: 1; }
+
+  @media (max-width: 360px) {
+    .card { padding: 20px 20px 22px; }
+    .prompt { font-size: 16px; }
+    .plate-answer .big { font-size: 26px; }
+    .opt { font-size: 13.5px; padding: 9px 11px; }
+  }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <!-- painted plate: torn edge + grain, drawn behind the content -->
+    <svg class="plate" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <!-- anisotropic noise: low frequency across, higher down, so the edge
+             streaks horizontally the way a dragged brush does -->
+        <filter id="brush" x="-8%" y="-12%" width="116%" height="124%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.03 0.1" numOctaves="3" seed="5" result="t"/>
+          <feDisplacementMap in="SourceGraphic" in2="t" scale="5"
+                             xChannelSelector="R" yChannelSelector="G" result="d"/>
+          <feGaussianBlur in="d" stdDeviation="0.3"/>
+        </filter>
+        <!-- paper grain, composited only where the plate is opaque -->
+        <filter id="grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" result="n"/>
+          <feColorMatrix in="n" type="saturate" values="0" result="g"/>
+          <feComposite in="g" in2="SourceGraphic" operator="in"/>
+        </filter>
+      </defs>
+      <g filter="url(#brush)">
+        <rect x="1.5%" y="2.5%" width="97%" height="95%" fill="currentColor"/>
+        <rect x="1.5%" y="2.5%" width="97%" height="95%" filter="url(#grain)"
+              opacity="0.3" style="mix-blend-mode:multiply"/>
+      </g>
+    </svg>
+
+    <div class="content" id="content"></div>
+  </div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   Height is content height — nothing stretches to fill the iframe, so the
+   card ends just under the last answer.
+   --------------------------------------------------------------------------- */
+const cardEl = document.getElementById('card');
+const contentEl = document.getElementById('content');
+const N = QUIZ.questions.length;
+const state = { i: 0, picked: null, revealed: false };
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const hasVideo = () => !!QUIZ.videoUrl && QUIZ.videoUrl !== '#';
+
+function render() {
+  const q = QUIZ.questions[state.i];
+  cardEl.className = 'card ' + (q.theme || 'sage');
+
+  const head = `<span class="kicker">${esc(state.revealed ? 'The answer' : (q.kicker || 'Take a guess'))}</span>
+    <p class="prompt">${esc(q.prompt)}</p>`;
+
+  contentEl.innerHTML = state.revealed
+    ? head + revealBlock(q)
+    : head + `<div class="opts">${q.options.map((o, k) =>
+        `<button class="opt" data-pick="${k}">${esc(o.label)}</button>`).join('')}</div>`;
+  report();
+}
+
+function revealBlock(q) {
+  const picked = state.picked != null ? q.options[state.picked] : null;
+  const right = !!(picked && picked.correct);
+  const hide = QUIZ.revealMode === 'after-video';
+
+  /* Which way they were wrong matters: one option sits ABOVE the answer, so
+     "it is bigger than that" would be flatly wrong for it. Direction comes
+     from list order (options must be listed low to high), and any option can
+     override the reaction with its own `verdict`. */
+  const correctIdx = q.options.findIndex((o) => o.correct);
+  const side = right ? 0 : (state.picked < correctIdx ? -1 : 1);
+  const verdict = (picked && picked.verdict)
+    || (right ? 'You got it' : side < 0 ? 'Higher than you think' : 'Not quite that high');
+
+  const yourGuess = picked
+    ? `<p class="guess">You guessed <b>${esc(picked.label)}</b>.</p>`
+    : '';
+
+  if (hide) {
+    return `${yourGuess}
+      <div class="plate-answer">
+        <div class="verdict">Guess locked in</div>
+        <div class="big small">The video has the answer.</div>
+        <p class="line">Most people guess low &mdash; by a lot.</p>
+      </div>
+      <div class="foot">
+        ${hasVideo() ? `<a class="btn solid" href="${esc(QUIZ.videoUrl)}" target="_blank" rel="noopener">${esc(QUIZ.videoLabel)}</a>` : ''}
+        <button class="linkbtn" data-act="force">Just tell me</button>
+      </div>`;
+  }
+
+  const more = state.i < N - 1;
+  const foot = more
+    ? `<div class="foot"><button class="btn" data-act="next">Next question</button></div>`
+    : hasVideo()
+      ? `<div class="foot"><a class="btn solid" href="${esc(QUIZ.videoUrl)}" target="_blank" rel="noopener">${esc(QUIZ.videoLabel)}</a></div>`
+      : '';
+
+  return `${yourGuess}
+    <div class="plate-answer">
+      <div class="verdict">${esc(verdict)}</div>
+      <div class="big">${esc(q.reveal.big)}</div>
+      <p class="line">${esc(q.reveal.line)}</p>
+    </div>
+    ${q.reveal.note ? `<p class="note">${esc(q.reveal.note)}</p>` : ''}
+    ${foot}`;
+}
+
+cardEl.addEventListener('click', (e) => {
+  const pick = e.target.closest('[data-pick]');
+  if (pick && !state.revealed) {
+    state.picked = Number(pick.dataset.pick);
+    state.revealed = true;
+    return render();
+  }
+  const act = e.target.closest('[data-act]');
+  if (!act) return;
+  if (act.dataset.act === 'next' && state.i < N - 1) {
+    state.i++; state.picked = null; state.revealed = false;
+    return render();
+  }
+  if (act.dataset.act === 'force') { QUIZ.revealMode = 'immediate'; return render(); }
+});
+
+/* report height on every state change, for hosts that auto-size the iframe */
+function report() {
+  if (window.parent === window) return;
+  const h = Math.ceil(cardEl.getBoundingClientRect().height);
+  window.parent.postMessage({ type: 'pinecone-quiz-height', height: h }, '*');
+}
+
+render();
+addEventListener('resize', report);
+</script>
+</body>
+</html>

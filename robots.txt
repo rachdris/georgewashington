@@ -1,0 +1,4 @@
+# Embedded widgets. They are meant to be loaded inside lesson pages,
+# not found on their own — a quiz fragment in search results just looks broken.
+User-agent: *
+Disallow: /
