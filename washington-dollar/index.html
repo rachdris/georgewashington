@@ -76,10 +76,14 @@ const QUIZ = {
      grain sits inside that torn shape instead of overflowing it. */
   .card {
     position: relative;
-    width: 100%; max-width: 440px; min-width: 0; margin: 0 auto;
-    padding: 24px 24px 26px;
+    width: 100%; min-width: 0;
+    min-height: 100vh;                /* fill the iframe, whatever height it is */
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 16px 18px;
     color: var(--sage);               /* the plate reads this via currentColor */
   }
+  /* the readable column, centred inside the filled panel */
+  .inner { width: 100%; max-width: 470px; margin: 0 auto; }
   .card.olive { color: var(--olive); }
   .card.rose  { color: var(--rose); }
   .card.peri  { color: var(--peri); }
@@ -91,15 +95,15 @@ const QUIZ = {
   .kicker {
     display: block;
     font-size: 10.5px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase;
-    opacity: .58; margin-bottom: 7px;
+    opacity: .58; margin-bottom: 5px;
   }
-  .prompt { font-size: 17px; line-height: 1.3; font-weight: 600; letter-spacing: -.005em; margin-bottom: 13px; }
+  .prompt { font-size: 16.5px; line-height: 1.28; font-weight: 600; letter-spacing: -.005em; margin-bottom: 10px; }
 
-  .opts { display: grid; gap: 7px; }
+  .opts { display: grid; gap: 6px; }
   .opt {
     text-align: left; width: 100%;
     background: var(--cream); border: 2px solid var(--ink); border-radius: var(--wob-1);
-    padding: 10px 13px; font-size: 14.5px; font-weight: 500;
+    padding: 8px 12px; font-size: 14px; font-weight: 500;
     box-shadow: 2px 2px 0 rgba(31, 37, 49, .2);
     transition: transform .09s, box-shadow .12s;
   }
@@ -141,8 +145,24 @@ const QUIZ = {
   }
   .linkbtn:hover { opacity: 1; }
 
+  /* wide embed (desktop): two-up options, and a step up in type so the
+     panel doesn't read as mostly empty at a fixed height */
+  @media (min-width: 440px) {
+    .opts { grid-template-columns: 1fr 1fr; gap: 8px; }
+  }
+
+  @media (min-width: 560px) {
+    .inner { max-width: 620px; }
+    .opts { gap: 10px; }
+    .prompt { font-size: 19.5px; margin-bottom: 16px; }
+    .opt { font-size: 15px; padding: 13px 15px; }
+    .kicker { font-size: 11px; margin-bottom: 9px; }
+    .plate-answer .big { font-size: 34px; }
+    .guess { font-size: 13px; }
+  }
+
   @media (max-width: 360px) {
-    .card { padding: 20px 20px 22px; }
+    .card { padding: 14px 15px; }
     .prompt { font-size: 16px; }
     .plate-answer .big { font-size: 26px; }
     .opt { font-size: 13.5px; padding: 9px 11px; }
@@ -176,7 +196,7 @@ const QUIZ = {
       </g>
     </svg>
 
-    <div class="content" id="content"></div>
+    <div class="inner"><div class="content" id="content"></div></div>
   </div>
 
 <script>
@@ -275,7 +295,12 @@ cardEl.addEventListener('click', (e) => {
 /* report height on every state change, for hosts that auto-size the iframe */
 function report() {
   if (window.parent === window) return;
+  /* the panel stretches to fill the iframe, so measure the natural content
+     height instead: drop the stretch, read, put it back */
+  const prev = cardEl.style.minHeight;
+  cardEl.style.minHeight = '0';
   const h = Math.ceil(cardEl.getBoundingClientRect().height);
+  cardEl.style.minHeight = prev;
   window.parent.postMessage({ type: 'pinecone-quiz-height', height: h }, '*');
 }
 
